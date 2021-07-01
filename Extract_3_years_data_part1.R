@@ -1,0 +1,81 @@
+# Date: June 21
+# Author: Christine Gilliver
+# Purpose: To extract 3 years of FBS Data from 2017-2019
+
+# ----------------------------------------------------------------------------------------------
+# STEP 0: Preamble
+# ----------------------------------------------------------------------------------------------
+
+tictoc::tic()
+# clear workspace
+rm(list=ls())
+
+# set working directory
+setwd(dir="//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/Appropriate Point on the Cost Curve/Matched_data_analysis")
+
+# loading packages
+library(tidyverse)
+# library(ggplot2)
+# library(readxl)
+# library(dplyr)
+# library(ggplot2)
+library(openxlsx)
+library(FBSCore)
+library(survey)
+library(openxlsx)
+
+
+# ----------------------------------------------------------------------------------------------
+# STEP 1: Construct 3 year matched dataset
+# ----------------------------------------------------------------------------------------------
+
+# bring in weights for 3 year matched
+fbsdata <- readRDS("//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/fbs_england_17_18_to_19_20_matched_3yr_sample_reweighted.rds")
+
+# list of variables to extract and then 3 year average below (those whose names we have from the CalculatedVariablesDefinition spreadsheet)
+varlist1 <- c(
+  # general farm variables
+  "UAA", 
+  "ALU",
+  "FBI",
+  "farm.business.output",
+  "farm.business.variable.costs",
+  "farm.business.fixed.costs",
+  "agriculture.income", 
+  "output.from.agriculture",
+  "agriculture.fixed.costs",
+  "agriculture.variable.costs",
+  "agriculture.unpaid.labour",
+  "BPS.income",
+  "basic.payment.scheme",
+  "agri.environment.income",
+  "agri.environment.payments",
+  "diversified.income",
+  "diversified.output",
+  "performance.ratio",
+  "total.area")
+
+# variables to extract (in addition to the standard ones)
+spec <- tibble(variable = c(varlist1),
+               name = c(rep(NA,length(varlist1))))
+
+
+# extract 3 years of data
+# MA: we really need to get the FBS into a proper database. This takes around 1.5 minutes to run.
+# MA: you might get more mileage with these data in long format.
+years <- seq(2017, 2019)
+for (i in years){
+  extract <- extract_spec(year = i,
+                          spec = spec,
+                          fbs_spreadsheet = TRUE,
+                          country = "england")
+  colnames(extract)[2:length(colnames(extract))] <- paste("X.",
+                                                          substring(as.character(i),3,4),
+                                                          sep = "",
+                                                          colnames(extract)[2:length(colnames(extract))])
+  fbsdata <- left_join(fbsdata,
+                       extract)
+}
+# write to exel
+write.xlsx(fbsdata, file = "06_01_fbsdata.xlsx", sheetName = "sheet1", append = FALSE)
+
