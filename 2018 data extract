@@ -1,0 +1,135 @@
+# Distributional analysis of Farm Performance using FBS data 
+# Rebecca Marston
+# 27/01/2021
+
+options(scipen = 999) # stop R displaying numbers in exponential
+cb <- function(df, sep="\t", dec=",", max.size=(200*1000)){
+  write.table(df, paste0("clipboard-", formatC(max.size, format="f", digits=0)), sep=sep, row.names=FALSE, dec=dec)
+} #Copy a data.frame to clipboard
+
+# Libraries ---------------------------------------------------------------
+#install.packages("dplyr")
+#install.packages("tidyverse")
+#install.packages("ggplot2")
+#install.packages("survey")
+#install.packages("srvyr")
+#install.packages("shiny")
+#install.packages("survey")
+#install.packages("gridExtra")
+#install.packages("ggfortify")
+#install.packages("Rmisc")
+#install.packages("rmarkdown")
+#install.packages("factoextra")
+#install.packages(c("FactoMineR", "factoextra"))
+#install.packages("dlookr")
+#install.packages("plyr")
+
+library(plyr)
+library(dplyr) 
+library(tidyverse)
+library(ggplot2)
+library(survey)
+library(srvyr)
+library(shiny)
+library(rmarkdown)
+library(factoextra)
+library(FactoMineR)
+library(dlookr)
+library(styler)
+library(lintr)
+library(Rmisc)
+library(plyr)
+
+# Working Directory -------------------------------------------------------------
+setwd("//ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston")
+
+# FSC Core Data --------------------------------------------------------------------------
+install.packages("FBSCore",
+                 repos = "file:////ler365fs/users$/TASPrototype/Statistical issues/R/FBScran",
+                 type = "win.binary")
+
+library(FBSCore)
+library(survey)
+library(tibble)
+
+# Create a spec
+spec <- tibble(variable = c("UAA", "area.farmed", "output.from.agriculture", "agriculture.variable.costs", "agriculture.gross.margin", "agriculture.fixed.costs"),
+               name = c(NA, NA, NA, NA, NA, NA))
+
+# Extract the data
+data <- extract_spec(year = 2018, spec = spec, country = "england")
+
+# Create a vector of the columns we want totals for
+# for each name = NA copy the variable to the name
+spec$name[is.na(spec$name)] <- spec$variable[is.na(spec$name)]
+
+# Create a survey object
+fbsdesign <- svydesign(id = ~ farms,
+                       strata = ~ stratum,
+                       fpc =  ~ num.pop,
+                       data = data,
+                       weight = ~ weight,
+                       nest = TRUE)
+
+totals <- total_byfac(spec$name, "type", fbsdesign)
+
+# To return only the all farms row
+totals <- total_byfac(spec$name, design = fbsdesign)
+
+# Return totals for multiple factors
+factors <- c("type", "gor")
+totals <- total_byfac(spec$name, factor = factors, design = fbsdesign)
+
+
+#Apply Weightings------------------------------------------------------------------
+# Apply weights
+data_weighted <- data %>% 
+  as_survey_design(1, strata = stratum, weight = weight)
+
+#Remove farms less than 5ha UAA--------------------------------------------------
+mydata<-subset(data_weighted, UAA>5)  
+
+# Creation of New Variables -----------------------------------------------------
+# convert to per ha values
+mydata$agriculture.gross.margin.per.ha <- mydata$agriculture.gross.margin / mydata$UAA
+mydata$agriculture.fixed.costs.per.ha <- mydata$agriculture.fixed.costs / mydata$UAA
+mydata$agriculture.variable.costs.per.ha <- mydata$agriculture.variable.costs / mydata$UAA
+mydata$output.from.agriculture.per.ha <- mydata$output.from.agriculture / mydata$UAA
+mydata$agriculture.income <- mydata$agriculture.income / mydata$UAA
+
+# mydata Quality Checks -----------------------------------------------------------
+dim(mydata) # 1768 rows, 36 variables 
+mydata
+diagnose <- diagnose(mydata) # there are no missing values and no unique count = 1
+diag_num <- diagnose_numeric(mydata) # the percent variables are not between 1 and 100
+# need to check how it's classifying outliers. 
+diag_cat <- diagnose_category(mydata)
+# visualise all anomaly values of all numeric variables with an outlier ration of 0.5% or more 
+mydata %>%
+  plot_outlier(diagnose_outlier(mydata) %>% 
+                 filter(outliers_ratio >= 0.5) %>% 
+                 select(variables) %>% 
+                 unlist())
+
+outliers <- diagnose_outlier(mydata)
+
+#write an Excel file--------------------------------------------------------------
+install.packages("openxlsx")
+library(openxlsx)
+write.xlsx(mydata, file = "myworkbook.xlsx", sheetName = "gross-margins", append = FALSE)
+
+# Summary Stats--------------------------------------------------------------------
+# Get summary stats for agriculture gross margin per ha
+summary(mydata$agriculture.gross.margin.per.ha)
+# confidence intervals
+ci <- CI(mydata$agriculture.gross.margin.per.ha, ci=0.95)
+
+# refine datase---------------------------------------------------------------------------------
+  mydata3 <- mydata %>%
+    group_by(type, lfa, gor, orgarea, tenancy, slrgroup) %>%
+    summarise(UAA, performance.ratio, agriculture.income, agriculture.fixed.costs, agriculture.gross.margin, agriculture.variable.costs, agriculture.income.per.ha, agriculture.fixed.costs.per.ha, agriculture.gross.margin.per.ha, agriculture.variable.costs.per.ha)
+
+write.xlsx(mydata3, file = "finaldata.xlsx", sheetName = "gross-margins", append = FALSE)
+
+
+
