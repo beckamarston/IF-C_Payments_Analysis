@@ -1,21 +1,27 @@
+# install.packages(c(
+#   'readxl',
+#   'shiny', 'shinydashboard',
+#   'plyr', 'dplyr', 'tidyverse',
+#   'ggplot2', 'ggpubr', 'Cairo'
+# ))
+library('readxl')
 library('shiny')
 library('shinydashboard')
-library('ggplot2')
 library('plyr')
 library('dplyr')
 library('tidyverse')
-library('readxl')
-#install.packages('Cairo')
-library('Cairo')
+library('ggplot2')
 library('ggpubr')
+library('Cairo')
 
 
-ui <- dashboardPage(
+
+ui <- {dashboardPage(
   dashboardHeader(title = 'Payment Visualisations'),
   dashboardSidebar(
     sidebarMenu(
-      menuItem('Introduction', tabName = 'intro'),
       menuItem('Distributional Analysis', tabName = 'plots'),
+      menuItem('Introduction', tabName = 'intro'),
       menuItem('Cost Curve Analysis', tabName = 'apcc'),
       menuItem('Background Data', tabName = 'data')
     )
@@ -47,7 +53,7 @@ ui <- dashboardPage(
             min = 10,
             max = 10000,
             value = 7000
-          )
+          ),
           selectInput(
             inputId = 'plots_group',
             label = 'Select Farm Grouping:',
@@ -81,7 +87,7 @@ ui <- dashboardPage(
         box(width = 12,
           title = 'Cumulative Plot',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          plotOutput('plots_cumplot', click='plot_click'),
+          plotOutput('plots_cumplot', click='plot_click2'),
           verbatimTextOutput('plots_data2')
         )
       )),
@@ -150,7 +156,7 @@ ui <- dashboardPage(
             plotOutput('apcc_areaplot2')
           )
         )
-      ),
+      )),
       tabItem(tabName= 'data', fluidRow(
         box(width = 12,
           title = 'Inputs',
@@ -212,10 +218,11 @@ ui <- dashboardPage(
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
           plotOutput('data_correlation')
         )
-      )
+      ))
     )
   )
-)
+)}
+
 
 
 server <- function(input, output) {
@@ -235,7 +242,7 @@ server <- function(input, output) {
   # reactive values
   x_reactive <- reactive({
     switch(
-      input$display_var,
+      input$plots_display_var,
       'performance.ratio' = mydata3$performance.ratio,
       'agriculture.gross.margin.per.ha' = mydata3$agriculture.gross.margin.per.ha
     )
@@ -251,7 +258,7 @@ server <- function(input, output) {
     }
 
     # set linecolor for median line
-    if (input$addmedian == TRUE) {
+    if (input$plots_addmedian == TRUE) {
       linecolor <- 'red'
     } else {
       linecolor <- rgb(0,0,0,0)  # colorless
@@ -268,11 +275,20 @@ server <- function(input, output) {
     )
 
     # added input$split here and repeated the code with and without a call to facet_wrap
-    if (input$split==TRUE) {
-      p + geom_histogram( bins = input$plots_bins, alpha=0.5, position='identity') +
+    if (input$plots_split==TRUE) {
+      p +
+        geom_histogram(
+          bins = input$plots_bins,
+          alpha = 0.5,
+          position = 'identity'
+        ) +
         xlab(xlabel) +
         ylab('Number of Farms') +
-        geom_vline(aes(xintercept = median(x_reactive())), col = linecolor, linetype= 'dashed') +
+        geom_vline(
+          aes(xintercept = median(x_reactive())),
+          col = linecolor,
+          linetype= 'dashed'
+        ) +
         facet_wrap(~get(input$plots_group)) +
         if (input$plots_display_var == 'performance.ratio') {
           coord_cartesian(xlim = c(0, 250))
@@ -280,10 +296,19 @@ server <- function(input, output) {
           coord_cartesian(xlim = c(-5000, 10000))
         }
     } else {
-      p + geom_histogram( bins = input$plots_bins, alpha=0.5, position='identity') +
+      p +
+        geom_histogram(
+          bins = input$plots_bins,
+          alpha = 0.5,
+          position = 'identity'
+        ) +
         xlab(xlabel) +
         ylab('Number of Farms') +
-        geom_vline(aes(xintercept = median(x_reactive())), col = linecolor, linetype= 'dashed') +
+        geom_vline(
+          aes(xintercept = median(x_reactive())),
+          col = linecolor,
+          linetype= 'dashed'
+        ) +
         if (input$plots_display_var == 'performance.ratio') {
           coord_cartesian(xlim = c(0, 250))
         } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
@@ -300,7 +325,7 @@ server <- function(input, output) {
         ' y=', round(e$y, 1)
       )
     }
-    paste0('data points: ', xy_str(input$plots_click2))
+    paste0('data points: ', xy_str(input$plots_click1))
   })
 
   #cumulative plot---------------------------------------------------------------------------------------
@@ -332,7 +357,7 @@ server <- function(input, output) {
 
   # data points
   output$plots_data2 <- renderText({
-    paste0('data points: ', xy_str(input$plots_click))
+    paste0('data points: ', xy_str(input$plots_click2))
   })
 
 
@@ -355,7 +380,7 @@ server <- function(input, output) {
 
   output$apcc_numberplot <- renderPlot({
     #Plot cumulative plot of gross margins and number of farms participating
-    ggplot(data = filteredData() ) +
+    ggplot(data = apcc_filteredData() ) +
       geom_line(aes(percRank, agriculture.gross.margin.per.ha, color=type)) +
       xlab('Farm Rank by Gross Margin') +
       ylab('Agriculture Gross Margins (£/ha)')
@@ -363,7 +388,7 @@ server <- function(input, output) {
 
   # zoom plot
   output$apcc_numberplot2 <- renderPlot({
-    ggplot(data = filteredData() ) +
+    ggplot(data = apcc_filteredData() ) +
       geom_line(aes(percRank,agriculture.gross.margin.per.ha, color=type)) +
       xlab('Farm Rank by Gross Margin') +
       ylab('Agriculture Gross Margins (£/ha)') +
@@ -387,7 +412,7 @@ server <- function(input, output) {
 
   output$apcc_areaplot <- renderPlot({
     # Plot a cumulative plot adding up the individual UAA(y) of the ranked farms against the gross margins (x)
-    ggplot(data = filteredData() ) +
+    ggplot(data = apcc_filteredData() ) +
       geom_line(aes(x = percRank, y = gmCumsum*area_var(), color = type)) +
       xlab('Farm Rank by Gross Margin') +
       ylab('Cumulative UAA (ha)')
@@ -395,7 +420,7 @@ server <- function(input, output) {
 
   # zoom plot
   output$apcc_areaplot2 <- renderPlot({
-    ggplot(data = filteredData()) +
+    ggplot(data = apcc_filteredData()) +
       geom_line(aes(x = percRank, y = gmCumsum*area_var(), color = type)) +
       xlab('Farm Rank by Gross Margin') +
       ylab('Cumulative UAA (ha)') +
@@ -412,8 +437,9 @@ server <- function(input, output) {
     }
   })
 
+  
   #correlations---------------------------------------------------------------------------------------------------
-  apcc_filteredData <- reactive({
+  data_filteredData <- reactive({
     mydata3 %>%
       dplyr::group_by(type) %>%
       dplyr::filter(type == input$data_type) %>%
@@ -431,7 +457,7 @@ server <- function(input, output) {
 
   output$data_correlation <- renderPlot({
     ggscatter(
-      filteredData(),
+      data_filteredData(),
       x = 'UAA',
       y = 'agriculture.gross.margin.per.ha',
       add = 'reg.line',
@@ -442,5 +468,6 @@ server <- function(input, output) {
   })
 }
 
-# Run the application
-shinyApp(ui = ui, server = server)
+
+
+shinyApp(ui, server)
