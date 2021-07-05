@@ -20,8 +20,8 @@ ui <- {dashboardPage(
   dashboardHeader(title = 'Payment Visualisations'),
   dashboardSidebar(
     sidebarMenu(
-      menuItem('Distributional Analysis', tabName = 'plots'),
       menuItem('Introduction', tabName = 'intro'),
+      menuItem('Distributional Analysis', tabName = 'plots'),
       menuItem('Cost Curve Analysis', tabName = 'apcc'),
       menuItem('Background Data', tabName = 'data')
     )
