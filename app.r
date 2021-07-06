@@ -1,18 +1,110 @@
+# TODO
+# Overall Dashboard: 
+# •	Combine APCC and Labour values dashboards
+# Cost curve analysis tab:
+# •	Add a table to show the deciles of farms gross margins (£/ha) reactive to same levers as the graph
+
+
+
 # install.packages(c(
-#   'readxl',
-#   'shiny', 'shinydashboard',
-#   'plyr', 'dplyr', 'tidyverse',
-#   'ggplot2', 'ggpubr', 'Cairo'
+#   'shiny', 'shinydashboard', 'shinyWidgets',
+#   'dplyr', 'htmltools',
+#   'ggplot2'
 # ))
-library('readxl')
 library('shiny')
 library('shinydashboard')
-library('plyr')
+library('shinyWidgets')
 library('dplyr')
-library('tidyverse')
 library('ggplot2')
-library('ggpubr')
-library('Cairo')
+
+
+
+{
+  data <- readxl::read_excel('//ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/dashboard_data.xlsx') %>%
+    dplyr::select(
+      'farms',
+      # 'uncal',
+      # 'weight',
+      # 'stratum',
+      'Farm Type' = 'type',
+      'Region' = 'gor',
+      # 'quotatype',
+      'slr',  #SLR
+      'SLR Farm Size' = 'slrgroup',
+      # 'slrgroup2',
+      # 'so',
+      'Tenancy Type' = 'tenancy',
+      # 'jca',
+      'LFA Status' = 'lfa',
+      # 'totarea',
+      # 'orgarea',
+      # 'bps',
+      'AES particpant' = 'agenv',
+      # 'newwt3yr',
+      # 'num.pop',
+      'Farm Size (UAA)' = 'UAA',
+      # 'area.farmed',
+      'labour.force',  #Number of Workers on the Farm
+      # 'farmer.spouse.AWU',
+      # 'FPD.AWU',
+      # 'FPD.spouses.AWU',
+      # 'unpaid.regular.AWU',
+      # 'unpaid.casual.AWU',
+      # 'manager.AWU',
+      # 'paid.whole.time.AWU',
+      # 'paid.part.time.AWU',
+      # 'paid.casual.AWU',
+      # 'trainee.AWU',
+      'AWU',
+      # 'AWU.check',
+      # 'adjusted.AWU',
+      'Farm Business Income' = 'FBI',
+      # 'output.from.agriculture',
+      # 'farm.business.output',
+      # 'farm.business.variable.costs',
+      # 'farm.business.fixed.costs',
+      # 'BPS.income',
+      # 'basic.payment.scheme',
+      # 'agri.environment.income',
+      # 'agri.environment.payments',
+      # 'diversified.income',
+      # 'diversified.output',
+      'Performance Ratio'= 'performance.ratio',
+      # 'total.area',
+      # 'agriculture.fixed.costs',
+      # 'agriculture.unpaid.labour',
+      # 'agriculture.variable.costs',
+      'Agriculture Income' = 'agriculture.income',
+      'Agriculture Income per ha' = 'agriculture.income.per.ha',
+      'Agriculture Gross Margin' = 'agriculture.gross.margin',
+      'Agriculture Gross Margin per ha' = 'agriculture.gross.margin.per.ha'
+    ) %>%
+    dplyr::mutate(`None` = 'None')
+  names = names(data)
+  names.selected = 'Agriculture Gross Margin per ha'
+  # names.selected = 'Performance Ratio'
+  farm.types <- unique(data$`Farm Type`)
+  farm.types.selected <- c(
+    'Dairy',
+    'Lowland Grazing Livestock',
+    'LFA Grazing Livestock',
+    'Cereals',
+    # 'Pigs',
+    'Mixed',
+    # 'Poultry',
+    # 'Horticulture',
+    'General cropping'
+  )
+  catagories <- c(
+    'None',
+    'Farm Type',
+    'Region',
+    'SLR Farm Size',
+    'Tenancy Type',
+    'LFA Status',
+    'AES particpant'
+  )
+}
 
 
 
@@ -20,63 +112,29 @@ ui <- {dashboardPage(
   dashboardHeader(title = 'Payment Visualisations'),
   dashboardSidebar(
     sidebarMenu(
-      menuItem('Introduction', tabName = 'intro'),
       menuItem('Distributional Analysis', tabName = 'plots'),
+      menuItem('Introduction', tabName = 'intro'),
       menuItem('Cost Curve Analysis', tabName = 'apcc'),
       menuItem('Background Data', tabName = 'data')
     )
   ),
   dashboardBody(
     tabItems(
-      tabItem(tabName = 'intro', fluidRow(
+      tabItem(tabName = 'intro', {fluidRow(
         box(width = 12,
           title = 'Distribution of Agricultural Gross Margins & Farm Performance',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          helpText()
+          htmltools::includeMarkdown('intro.md')
         )
-      )),
-      tabItem(tabName = 'plots', fluidRow(
+      )}),
+      tabItem(tabName = 'plots', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          radioButtons(
-            inputId = 'plots_display_var',
-            label = 'Select Variable to Plot:',
-            choices = c(
-              'Agricultural Gross Margins per ha' = 'agriculture.gross.margin.per.ha',
-              'Performance Ratio'= 'performance.ratio'
-            )
-          ),
-          sliderInput(
-            inputId = 'plots_bins',
-            label = 'Select Binwidth:',
-            min = 10,
-            max = 10000,
-            value = 7000
-          ),
-          selectInput(
-            inputId = 'plots_group',
-            label = 'Select Farm Grouping:',
-            choices = c(
-              'None' = FALSE,
-              'Farm Type' = 'type',
-              'Region' = 'gor',
-              'LFA Status' = 'lfa',
-              'Tenancy Type' = 'tenancy',
-              'SLR Farm Size' = 'slrgroup',
-              'AES particpant'= 'agenv'
-            )
-          ),
-          checkboxInput(
-            inputId = 'plots_split',
-            label = 'Split Histogram into Groups:',
-            value = FALSE
-          ),
-          checkboxInput(
-            inputId = 'plots_addmedian',
-            label = 'Show Median:',
-            value = FALSE
-          )
+          pickerInput('plots_x', 'x-axis', choices = names, select = names.selected),
+          numericInput( 'plots_bins', 'Number of bins', value = 21, min = 1),
+          materialSwitch('plots_split', 'Split Histogram into Groups', value = FALSE, status = 'primary', right = TRUE),
+          selectInput('plots_group', 'Farm Grouping', choices = catagories)
         ),
         box(width = 12,
           title = 'Histogram',
@@ -87,384 +145,192 @@ ui <- {dashboardPage(
         box(width = 12,
           title = 'Cumulative Plot',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          plotOutput('plots_cumplot', click='plot_click2'),
+          plotOutput('plots_cumplot', click='plots_click2'),
           verbatimTextOutput('plots_data2')
         )
-      )),
-      tabItem(tabName= 'apcc', fluidRow(
+      )}),
+      tabItem(tabName = 'apcc', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          checkboxGroupInput(
-            inputId = 'apcc_type',
-            label = 'Select Farm Type(s):',
-            choices = c(
-              'Cereals',
-              'Dairy',
-              'General cropping',
-              'Horticulture',
-              'LFA Grazing Livestock',
-              'Lowland Grazing Livestock',
-              'Mixed',
-              'Pigs',
-              'Poultry'
-            ),
-            selected = c(
-              'Cereals',
-              'Dairy',
-              'General cropping',
-              'LFA Grazing Livestock',
-              'Lowland Grazing Livestock',
-              'Mixed'
-            )
-          ),
-          checkboxInput(
-            inputId = 'apcc_combine',
-            label = 'Combine Curves',
-            value = FALSE
-          ),
-          sliderInput(
-            inputId = 'apcc_UAAarea',
-            label = 'Percentage of Holding Entered:',
-            min = 0,
-            max = 1,
-            value = 0.6
-          ),
-          checkboxInput(
-            inputId = 'apcc_percentage',
-            label = 'Show UAA as Percentage of Total',
-            value = FALSE
-          )
+          pickerInput('apcc_cats', 'Catagory', choices = catagories),
+          pickerInput('apcc_catopts', 'None', choices = 'None', selected = 'None', options = list(`actions-box`=TRUE), multiple = TRUE),
+          sliderInput('apcc_UAAarea', 'Percentage of Holding Entered', min = 0, max = 1, value = 0.6),
+          materialSwitch('apcc_percentage', 'Show UAA as Percentage of Total', value = FALSE, status = 'primary', right = TRUE)
         ),
         box(width = 12,
           title = 'Cost Curve by Number of Farms',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          column(width = 6,
-            plotOutput('apcc_numberplot', brush = brushOpts(id = 'apcc_brush1',resetOnNew = TRUE))
-          ),
-          column(width = 6,
-            plotOutput('apcc_numberplot2')
-          )
+          plotOutput('apcc_numberplot')
         ),
         box(width = 12,
           title = 'Cost Curve by UAA',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          column(width = 6,
-            plotOutput('apcc_areaplot', brush = brushOpts(id = 'apcc_brush2',resetOnNew = TRUE))
-          ),
-          column(width = 6,
-            plotOutput('apcc_areaplot2')
-          )
+          plotOutput('apcc_areaplot'),
+          tableOutput('apcc_areaplot_table')
+        ),
+        box(width = 12,
+          title = 'Cost Curve by Number of Farms',
+          solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
+          tableOutput('apcc_table')
         )
-      )),
-      tabItem(tabName= 'data', fluidRow(
+      )}),
+      tabItem(tabName = 'data', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          checkboxGroupInput(
-            inputId = 'data_type',
-            label = 'Select Farm Type(s):',
-            choices = c(
-              'Cereals',
-              'Dairy',
-              'General cropping',
-              'Horticulture',
-              'LFA Grazing Livestock',
-              'Lowland Grazing Livestock',
-              'Mixed',
-              'Pigs',
-              'Poultry'
-            ),
-            selected = c(
-              'Cereals',
-              'Dairy',
-              'General cropping',
-              'LFA Grazing Livestock',
-              'Lowland Grazing Livestock',
-              'Mixed'
-            )
-          ),
-          selectInput(
-            inputId = 'data_var1',
-            label = 'Select Variable for x-axis:',
-            choices = c(
-              'Farm Business Income' = 'FBI',
-              'Agriculture Gross Margins per ha' = 'agriculture.gross.margin.per.ha',
-              'Agriculture Gross Margins' = 'agriculture.gross.margin',
-              'Agriculture Income per ha' = 'agriculture.income.per.ha',
-              'Agriculture Income' = 'agriculture.income',
-              'Performance Ratio'= 'performance.ratio',
-              'Farm Size (UAA)'= 'UAA'
-            ),
-            selected = c('FBI')
-          ),
-          selectInput(
-            inputId = 'data_var2',
-            label = 'Select Variable for y-axis:',
-            choices = c(
-              'Farm Business Income' = 'FBI',
-              'Agriculture Gross Margins per ha' = 'agriculture.gross.margin.per.ha',
-              'Agriculture Gross Margins' = 'agriculture.gross.margin',
-              'Agriculture Income per ha' = 'agriculture.income.per.ha',
-              'Agriculture Income' = 'agriculture.income',
-              'Performance Ratio'= 'performance.ratio',
-              'Farm Size (UAA)'= 'UAA'
-            ),
-            selected= c('agriculture.gross.margin.per.ha')
-          )
+          pickerInput('data_type', 'Farm Types', choices = farm.types, selected = farm.types.selected, options = list(`actions-box`=TRUE), multiple = TRUE),
+          selectInput('data_x', 'x-axis', choices = names),
+          selectInput('data_y', 'y-axis', choices = names)
         ),
         box(width = 12,
           title = 'Correlation',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
           plotOutput('data_correlation')
         )
-      ))
+      )})
     )
   )
 )}
 
 
 
-server <- function(input, output) {
-
-  # extract data
-  mydata3 <- read.csv('//ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/Appropriate Point on the Cost Curve/FBS_data_2018.csv')
-
+server <- function(input, output, session) {
   xy_str <- function(e) {
-    if(is.null(e)) return('NULL\n')
-    paste0(
-      'x=', round(e$x, 1),
-      ' y=', round(e$y, 1)
-    )
-  }
-
-
-  # reactive values
-  x_reactive <- reactive({
-    switch(
-      input$plots_display_var,
-      'performance.ratio' = mydata3$performance.ratio,
-      'agriculture.gross.margin.per.ha' = mydata3$agriculture.gross.margin.per.ha
-    )
-  })
-
-  #histogram--------------------------------------------------------------------------------------------------
-  output$plots_distplot <- renderPlot({
-    # set x-axis label depending on the value of display_var
-    if (input$plots_display_var == 'performance.ratio') {
-      xlabel <- 'Performance Ratio'
-    } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
-      xlabel <- 'Agriculture Gross Margin (£/ha)'
-    }
-
-    # set linecolor for median line
-    if (input$plots_addmedian == TRUE) {
-      linecolor <- 'red'
+    if(is.null(e)) {
+      'NULL\n'
     } else {
-      linecolor <- rgb(0,0,0,0)  # colorless
-    }
-
-    # set variable and groupings for colour
-    p <- ggplot(
-      mydata3,
-      aes_string(
-        input$plots_display_var,
-        color = input$plots_group,
-        fill = input$plots_group
-      )
-    )
-
-    # added input$split here and repeated the code with and without a call to facet_wrap
-    if (input$plots_split==TRUE) {
-      p +
-        geom_histogram(
-          bins = input$plots_bins,
-          alpha = 0.5,
-          position = 'identity'
-        ) +
-        xlab(xlabel) +
-        ylab('Number of Farms') +
-        geom_vline(
-          aes(xintercept = median(x_reactive())),
-          col = linecolor,
-          linetype= 'dashed'
-        ) +
-        facet_wrap(~get(input$plots_group)) +
-        if (input$plots_display_var == 'performance.ratio') {
-          coord_cartesian(xlim = c(0, 250))
-        } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
-          coord_cartesian(xlim = c(-5000, 10000))
-        }
-    } else {
-      p +
-        geom_histogram(
-          bins = input$plots_bins,
-          alpha = 0.5,
-          position = 'identity'
-        ) +
-        xlab(xlabel) +
-        ylab('Number of Farms') +
-        geom_vline(
-          aes(xintercept = median(x_reactive())),
-          col = linecolor,
-          linetype= 'dashed'
-        ) +
-        if (input$plots_display_var == 'performance.ratio') {
-          coord_cartesian(xlim = c(0, 250))
-        } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
-          coord_cartesian(xlim = c(-5000, 10000))
-        }
-    }
-  })
-  # data points
-  output$plots_data1 <- renderText({
-    xy_str <- function(e) {
-      if (is.null(e)) return('NULL\n')
       paste0(
         'x=', round(e$x, 1),
         ' y=', round(e$y, 1)
       )
     }
-    paste0('data points: ', xy_str(input$plots_click1))
-  })
+  }
 
-  #cumulative plot---------------------------------------------------------------------------------------
+  
+  output$plots_distplot <- renderPlot({
+    p <- data %>%
+      dplyr::group_by(!!as.name(input$plots_group)) %>%
+      ggplot(aes_string(
+        x = as.name(input$plots_x),
+        colour = as.name(input$plots_group),
+        fill = as.name(input$plots_group)
+      )) +
+      # geom_histogram(
+      #   bins = input$plots_bins,
+      #   alpha = 1 / dplyr::n_distinct(data[[input$plots_group]])
+      # ) +
+      geom_density(
+        alpha = 1 / dplyr::n_distinct(data[[input$plots_group]])
+      ) +
+      ylab('Number of Farms') +
+      coord_cartesian(xlim = c(
+        quantile(data[[input$plots_x]], .025),
+        quantile(data[[input$plots_x]], .975)
+      ))
+
+    if (input$plots_split==TRUE) {
+      p <- p +
+        theme(legend.position = 'none') +
+        facet_wrap(~get(input$plots_group))
+    }
+
+    p
+  })
+  output$plots_data1 <- renderText({
+    paste('data points:', xy_str(input$plots_click1))
+  })
   output$plots_cumplot <- renderPlot({
-
-    if (input$plots_display_var == 'performance.ratio') {
-      xlabel <- 'Performance Ratio'
-    } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
-      xlabel <- 'Agriculture Gross Margins (£/ha)'
-    }
-
-    c <- ggplot(
-      mydata3,
-      aes_string(
-        input$plots_display_var,
-        color = input$plots_group
-      )
-    )
-
-    c + stat_ecdf(geom = 'line', pad = FALSE) +
-      xlab(xlabel) +
+    data %>%
+      dplyr::group_by(!!as.name(input$plots_group)) %>%
+      ggplot(aes_string(
+        x = as.name(input$plots_x),
+        colour = as.name(input$plots_group)
+      )) +
+      stat_ecdf(
+        geom = 'line',
+        pad = FALSE
+      ) +
       ylab('Cumulative Density') +
-      if (input$plots_display_var == 'performance.ratio') {
-        coord_cartesian(xlim = c(0, 250))
-      } else if (input$plots_display_var == 'agriculture.gross.margin.per.ha') {
-        coord_cartesian(xlim = c(-5000, 10000))
-      }
+      coord_cartesian(xlim = c(
+        quantile(data[[input$plots_x]], .025),
+        quantile(data[[input$plots_x]], .975)
+      ))
   })
-
-  # data points
   output$plots_data2 <- renderText({
-    paste0('data points: ', xy_str(input$plots_click2))
-  })
-
-
-  # cost curves-------------------------------------------------------------------------------
-  # filter by farm type. There | means or, so it is saying either filter on the variable that has been set by ticking the box, or set the filter variable to 'All types'.
-  apcc_filteredData <- reactive({
-    mydata3 %>%
-      dplyr::group_by(type) %>%
-      dplyr::filter(type == input$apcc_type) %>%
-      # order by gross margin
-      dplyr::arrange(agriculture.gross.margin.per.ha) %>%
-      # create a rank variable
-      dplyr::mutate(percRank = rank(agriculture.gross.margin.per.ha)/length(agriculture.gross.margin.per.ha)) %>%
-      # keep track of the cumulative sum
-      dplyr::mutate(gmCumsum = cumsum(UAA))
-  })
-
-  # cost curve by numbers-----------------------------------------------------------------
-  ranges <- reactiveValues(x = NULL, y = NULL)
-
-  output$apcc_numberplot <- renderPlot({
-    #Plot cumulative plot of gross margins and number of farms participating
-    ggplot(data = apcc_filteredData() ) +
-      geom_line(aes(percRank, agriculture.gross.margin.per.ha, color=type)) +
-      xlab('Farm Rank by Gross Margin') +
-      ylab('Agriculture Gross Margins (£/ha)')
-  })
-
-  # zoom plot
-  output$apcc_numberplot2 <- renderPlot({
-    ggplot(data = apcc_filteredData() ) +
-      geom_line(aes(percRank,agriculture.gross.margin.per.ha, color=type)) +
-      xlab('Farm Rank by Gross Margin') +
-      ylab('Agriculture Gross Margins (£/ha)') +
-      coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
-  })
-
-  observe({
-    brush <- input$apcc_brush1
-    if (!is.null(brush)) {
-      ranges$x <- c(brush$xmin, brush$xmax)
-      ranges$y <- c(brush$ymin, brush$ymax)
-    } else {
-      ranges$x <- NULL
-      ranges$y <- NULL
-    }
-  })
-
-  # UAA Curve-----------------------------------------------------------------------
-  area_var <- reactive(input$apcc_UAAarea)
-  ranges2 <- reactiveValues(x = NULL, y = NULL)
-
-  output$apcc_areaplot <- renderPlot({
-    # Plot a cumulative plot adding up the individual UAA(y) of the ranked farms against the gross margins (x)
-    ggplot(data = apcc_filteredData() ) +
-      geom_line(aes(x = percRank, y = gmCumsum*area_var(), color = type)) +
-      xlab('Farm Rank by Gross Margin') +
-      ylab('Cumulative UAA (ha)')
-  })
-
-  # zoom plot
-  output$apcc_areaplot2 <- renderPlot({
-    ggplot(data = apcc_filteredData()) +
-      geom_line(aes(x = percRank, y = gmCumsum*area_var(), color = type)) +
-      xlab('Farm Rank by Gross Margin') +
-      ylab('Cumulative UAA (ha)') +
-      coord_cartesian(xlim = ranges2$x, ylim = ranges2$y, expand = FALSE)
-  })
-  observe({
-    brush <- input$apcc_brush2
-    if (!is.null(brush)) {
-      ranges2$x <- c(brush$xmin, brush$xmax)
-      ranges2$y <- c(brush$ymin, brush$ymax)
-    } else {
-      ranges2$x <- NULL
-      ranges2$y <- NULL
-    }
+    paste('data points:', xy_str(input$plots_click2))
   })
 
   
-  #correlations---------------------------------------------------------------------------------------------------
-  data_filteredData <- reactive({
-    mydata3 %>%
-      dplyr::group_by(type) %>%
-      dplyr::filter(type == input$data_type) %>%
-      # order by gross margin
-      dplyr::arrange(agriculture.gross.margin.per.ha) %>%
-      # create a rank variable
-      dplyr::mutate(percRank = rank(agriculture.gross.margin.per.ha)/length(agriculture.gross.margin.per.ha)) %>%
-      # keep track of the cumulative sum
-      dplyr::mutate(gmCumsum = cumsum(UAA))
+  observeEvent(input$apcc_cats, {
+    opts <- data %>% select(input$apcc_cats) %>% unique()
+    updatePickerInput(session, 'apcc_catopts', input$apcc_cats, choices = opts, selected = opts)
   })
-
-  # need to fix reactivity and connect to the input controls for filtering farm types (currently connected to cost curve tab)
-  x_axis <- reactive(input$data_var1)
-  y_axis <- reactive(input$data_var2)
-
+  apcc_filteredData <- reactive({
+    df <- data %>%
+      dplyr::filter(
+        !!as.name(input$apcc_cats) %in% input$apcc_catopts
+      ) %>%
+      dplyr::group_by(!!as.name(input$apcc_cats)) %>%
+      dplyr::arrange(`Agriculture Gross Margin per ha`) %>%
+      dplyr::mutate(
+        `Farm Rank by Gross Margin` = rank(`Agriculture Gross Margin per ha`) / length(`Agriculture Gross Margin per ha`),
+        `Cumulative UAA (ha)` = input$apcc_UAAarea * cumsum(`Farm Size (UAA)`) / if(input$apcc_percentage){sum(`Farm Size (UAA)`)}else{1}
+      )
+  })
+  output$apcc_numberplot <- renderPlot({
+    apcc_filteredData() %>%
+      ggplot(aes(
+        x = `Farm Rank by Gross Margin`,
+        y = `Agriculture Gross Margin per ha`,
+        color = !!as.name(input$apcc_cats)
+      )) +
+      geom_line()
+  })
+  output$apcc_areaplot <- renderPlot({
+    apcc_filteredData() %>%
+      ggplot(aes(
+        x = `Farm Rank by Gross Margin`,
+        y = `Cumulative UAA (ha)`,
+        color = !!as.name(input$apcc_cats)
+      )) +
+      geom_line()
+  })
+  output$apcc_table <- renderTable({
+    df <- apcc_filteredData() %>%
+      dplyr::mutate(
+        `Rank Decile` = dplyr::ntile(`Farm Rank by Gross Margin`, 10)
+      ) %>%
+      dplyr::group_by(
+        !!as.name(input$apcc_cats),
+        `Rank Decile`
+      ) %>%
+      dplyr::summarise(
+        `Mean Farm Rank by Gross Margin` = mean(`Farm Rank by Gross Margin`),
+        `Mean Agriculture Gross Margin per ha` = mean(`Agriculture Gross Margin per ha`),
+        `Mean Cumulative UAA (ha)` = mean(`Cumulative UAA (ha)`),
+        `Count` = dplyr::n(),
+        .groups = 'drop'
+      )
+  })
+  
+  
   output$data_correlation <- renderPlot({
-    ggscatter(
-      data_filteredData(),
-      x = 'UAA',
-      y = 'agriculture.gross.margin.per.ha',
-      add = 'reg.line',
-      conf.int = TRUE,
-      cor.coef = TRUE,
-      cor.method = 'pearson'
-    )
+    data %>%
+      dplyr::filter(
+        `Farm Type` %in% input$data_type
+      ) %>%
+      ggplot(aes_string(
+        x = input$data_x,
+        y = input$data_y,
+        color = input$data_type
+      )) +
+      ggscatter(
+        add = 'reg.line',
+        conf.int = TRUE,
+        cor.coef = TRUE,
+        cor.method = 'pearson'
+      )
   })
 }
 
