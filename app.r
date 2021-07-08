@@ -15,6 +15,7 @@ library('shiny')
 library('shinydashboard')
 library('shinyWidgets')
 library('dplyr')
+library('htmltools')
 library('ggplot2')
 
 
@@ -79,7 +80,7 @@ library('ggplot2')
       'Agriculture Gross Margin' = 'agriculture.gross.margin',
       'Agriculture Gross Margin per ha' = 'agriculture.gross.margin.per.ha'
     ) %>%
-    dplyr::mutate(`None` = 'None')
+    dplyr::mutate(`All` = 'All')
   names = names(data)
   names.selected = 'Agriculture Gross Margin per ha'
   # names.selected = 'Performance Ratio'
@@ -95,8 +96,8 @@ library('ggplot2')
     # 'Horticulture',
     'General cropping'
   )
-  catagories <- c(
-    'None',
+  categories <- c(
+    'All',
     'Farm Type',
     'Region',
     'SLR Farm Size',
@@ -112,29 +113,29 @@ ui <- {dashboardPage(
   dashboardHeader(title = 'Payment Visualisations'),
   dashboardSidebar(
     sidebarMenu(
-      menuItem('Distributional Analysis', tabName = 'plots'),
-      menuItem('Introduction', tabName = 'intro'),
-      menuItem('Cost Curve Analysis', tabName = 'apcc'),
-      menuItem('Background Data', tabName = 'data')
+      menuItem('Introduction', tabName = 'intro_'),
+      menuItem('Distributional Analysis', tabName = 'plots_'),
+      menuItem('Cost Curve Analysis', tabName = 'apcc_'),
+      menuItem('Background Data', tabName = 'data_')
     )
   ),
   dashboardBody(
     tabItems(
-      tabItem(tabName = 'intro', {fluidRow(
+      tabItem(tabName = 'intro_', {fluidRow(
         box(width = 12,
           title = 'Distribution of Agricultural Gross Margins & Farm Performance',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
           htmltools::includeMarkdown('intro.md')
         )
       )}),
-      tabItem(tabName = 'plots', {fluidRow(
+      tabItem(tabName = 'plots_', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
           pickerInput('plots_x', 'x-axis', choices = names, select = names.selected),
-          numericInput( 'plots_bins', 'Number of bins', value = 21, min = 1),
-          materialSwitch('plots_split', 'Split Histogram into Groups', value = FALSE, status = 'primary', right = TRUE),
-          selectInput('plots_group', 'Farm Grouping', choices = catagories)
+          selectInput('plots_group', 'Farm Grouping', choices = categories),
+          # numericInput( 'plots_bins', 'Number of bins', value = 21, min = 1),
+          materialSwitch('plots_split', 'Split Histogram into Groups', value = FALSE, status = 'primary', right = TRUE)
         ),
         box(width = 12,
           title = 'Histogram',
@@ -149,12 +150,12 @@ ui <- {dashboardPage(
           verbatimTextOutput('plots_data2')
         )
       )}),
-      tabItem(tabName = 'apcc', {fluidRow(
+      tabItem(tabName = 'apcc_', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          pickerInput('apcc_cats', 'Catagory', choices = catagories),
-          pickerInput('apcc_catopts', 'None', choices = 'None', selected = 'None', options = list(`actions-box`=TRUE), multiple = TRUE),
+          pickerInput('apcc_cats', 'Catagory', choices = categories),
+          pickerInput('apcc_catopts', 'None', choices = categories[1], selected = categories[1], options = list(`actions-box`=TRUE), multiple = TRUE),
           sliderInput('apcc_UAAarea', 'Percentage of Holding Entered', min = 0, max = 1, value = 0.6),
           materialSwitch('apcc_percentage', 'Show UAA as Percentage of Total', value = FALSE, status = 'primary', right = TRUE)
         ),
@@ -175,7 +176,7 @@ ui <- {dashboardPage(
           tableOutput('apcc_table')
         )
       )}),
-      tabItem(tabName = 'data', {fluidRow(
+      tabItem(tabName = 'data_', {fluidRow(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
@@ -196,6 +197,7 @@ ui <- {dashboardPage(
 
 
 server <- function(input, output, session) {
+  # plots_ Tab
   xy_str <- function(e) {
     if(is.null(e)) {
       'NULL\n'
@@ -206,15 +208,13 @@ server <- function(input, output, session) {
       )
     }
   }
-
-  
   output$plots_distplot <- renderPlot({
     p <- data %>%
       dplyr::group_by(!!as.name(input$plots_group)) %>%
-      ggplot(aes_string(
-        x = as.name(input$plots_x),
-        colour = as.name(input$plots_group),
-        fill = as.name(input$plots_group)
+      ggplot(aes(
+        x = !!as.name(input$plots_x),
+        colour = !!as.name(input$plots_group),
+        fill = !!as.name(input$plots_group)
       )) +
       # geom_histogram(
       #   bins = input$plots_bins,
@@ -243,9 +243,9 @@ server <- function(input, output, session) {
   output$plots_cumplot <- renderPlot({
     data %>%
       dplyr::group_by(!!as.name(input$plots_group)) %>%
-      ggplot(aes_string(
-        x = as.name(input$plots_x),
-        colour = as.name(input$plots_group)
+      ggplot(aes(
+        x = !!as.name(input$plots_x),
+        colour = !!as.name(input$plots_group)
       )) +
       stat_ecdf(
         geom = 'line',
@@ -261,7 +261,7 @@ server <- function(input, output, session) {
     paste('data points:', xy_str(input$plots_click2))
   })
 
-  
+  # apcc_ Tab
   observeEvent(input$apcc_cats, {
     opts <- data %>% select(input$apcc_cats) %>% unique()
     updatePickerInput(session, 'apcc_catopts', input$apcc_cats, choices = opts, selected = opts)
@@ -283,7 +283,7 @@ server <- function(input, output, session) {
       ggplot(aes(
         x = `Farm Rank by Gross Margin`,
         y = `Agriculture Gross Margin per ha`,
-        color = !!as.name(input$apcc_cats)
+        colour = !!as.name(input$apcc_cats)
       )) +
       geom_line()
   })
@@ -292,7 +292,7 @@ server <- function(input, output, session) {
       ggplot(aes(
         x = `Farm Rank by Gross Margin`,
         y = `Cumulative UAA (ha)`,
-        color = !!as.name(input$apcc_cats)
+        colour = !!as.name(input$apcc_cats)
       )) +
       geom_line()
   })
@@ -314,23 +314,20 @@ server <- function(input, output, session) {
       )
   })
   
-  
+  # data_ Tab
   output$data_correlation <- renderPlot({
     data %>%
       dplyr::filter(
         `Farm Type` %in% input$data_type
       ) %>%
-      ggplot(aes_string(
-        x = input$data_x,
-        y = input$data_y,
-        color = input$data_type
+      ggplot(aes(
+        x = !!as.name(input$data_x),
+        y = !!as.name(input$data_y)
       )) +
-      ggscatter(
-        add = 'reg.line',
-        conf.int = TRUE,
-        cor.coef = TRUE,
-        cor.method = 'pearson'
-      )
+      geom_point(aes(
+        colour = `Farm Type`
+      )) +
+      geom_smooth()
   })
 }
 
