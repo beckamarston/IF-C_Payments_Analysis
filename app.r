@@ -294,7 +294,7 @@ server <- function(input, output, session) {
       )) +
       geom_line()
     
-    if (input$plots_split==TRUE) {
+    if (input$apcc_split==TRUE) {
       p <- p +
         theme(legend.position = 'none') +
         facet_wrap(~get(input$apcc_group))
@@ -311,10 +311,10 @@ server <- function(input, output, session) {
       )) +
       geom_line()
     
-    if (input$plots_split==TRUE) {
+    if (input$apcc_split==TRUE) {
       p <- p +
         theme(legend.position = 'none') +
-        facet_wrap(~get(input$plots_group))
+        facet_wrap(~get(input$apcc_group))
     }
     
     p
