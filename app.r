@@ -6,16 +6,12 @@
 
 
 
-# install.packages(c(
-#   'shiny', 'shinydashboard', 'shinyWidgets',
-#   'dplyr', 'htmltools',
-#   'ggplot2'
-# ))
 library('shiny')
 library('shinydashboard')
 library('shinyWidgets')
-library('dplyr')
 library('htmltools')
+library('markdown')
+library('dplyr')
 library('ggplot2')
 
 
@@ -125,7 +121,9 @@ ui <- {dashboardPage(
         box(width = 12,
           title = 'Distribution of Agricultural Gross Margins & Farm Performance',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          htmltools::includeMarkdown('intro.md')
+          markdown("
+            This is a markdown file.
+          ")
         )
       )}),
       tabItem(tabName = 'plots_', {fluidRow(
@@ -157,7 +155,8 @@ ui <- {dashboardPage(
           pickerInput('apcc_cats', 'Category', choices = categories),
           pickerInput('apcc_catopts', categories[1], choices = categories[1], selected = categories[1], options = list(`actions-box`=TRUE), multiple = TRUE),
           sliderInput('apcc_UAAarea', 'Percentage of Holding Entered', min = 0, max = 1, value = 0.6),
-          materialSwitch('apcc_percentage', 'Show UAA as Percentage of Total', value = FALSE, status = 'primary', right = TRUE)
+          materialSwitch('apcc_percentage', 'Show UAA as Percentage of Total', value = FALSE, status = 'primary', right = TRUE),
+          materialSwitch('apcc_split', 'Split Histogram into Groups', value = FALSE, status = 'primary', right = TRUE)
         ),
         box(width = 12,
           title = 'Cost Curve by Number of Farms',
@@ -241,7 +240,7 @@ server <- function(input, output, session) {
     paste('data points:', xy_str(input$plots_click1))
   })
   output$plots_cumplot <- renderPlot({
-    data %>%
+    p <- data %>%
       dplyr::group_by(!!as.name(input$plots_group)) %>%
       ggplot(aes(
         x = !!as.name(input$plots_x),
@@ -256,6 +255,14 @@ server <- function(input, output, session) {
         quantile(data[[input$plots_x]], .025),
         quantile(data[[input$plots_x]], .975)
       ))
+    
+    if (input$plots_split==TRUE) {
+      p <- p +
+        theme(legend.position = 'none') +
+        facet_wrap(~get(input$plots_group))
+    }
+    
+    p
   })
   output$plots_data2 <- renderText({
     paste('data points:', xy_str(input$plots_click2))
@@ -279,22 +286,38 @@ server <- function(input, output, session) {
       )
   })
   output$apcc_numberplot <- renderPlot({
-    apcc_filteredData() %>%
+    p <- apcc_filteredData() %>%
       ggplot(aes(
         x = `Farm Rank by Gross Margin`,
         y = `Agriculture Gross Margin per ha`,
         colour = !!as.name(input$apcc_cats)
       )) +
       geom_line()
+    
+    if (input$plots_split==TRUE) {
+      p <- p +
+        theme(legend.position = 'none') +
+        facet_wrap(~get(input$apcc_group))
+    }
+    
+    p
   })
   output$apcc_areaplot <- renderPlot({
-    apcc_filteredData() %>%
+    p <- apcc_filteredData() %>%
       ggplot(aes(
         x = `Farm Rank by Gross Margin`,
         y = `Cumulative UAA (ha)`,
         colour = !!as.name(input$apcc_cats)
       )) +
       geom_line()
+    
+    if (input$plots_split==TRUE) {
+      p <- p +
+        theme(legend.position = 'none') +
+        facet_wrap(~get(input$plots_group))
+    }
+    
+    p
   })
   output$apcc_table <- renderTable({
     df <- apcc_filteredData() %>%
@@ -311,7 +334,8 @@ server <- function(input, output, session) {
         `Mean Cumulative UAA (ha)` = mean(`Cumulative UAA (ha)`),
         `Count` = dplyr::n(),
         .groups = 'drop'
-      )
+      ) %>%
+      dplyr::filter(5 < Count)
   })
   
   # data_ Tab
