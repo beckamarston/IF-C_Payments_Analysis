@@ -154,8 +154,8 @@ ui <- {dashboardPage(
         box(width = 12,
           title = 'Inputs',
           solidHeader = TRUE, status = 'primary', collapsible = TRUE, collapsed = FALSE,
-          pickerInput('apcc_cats', 'Catagory', choices = categories),
-          pickerInput('apcc_catopts', 'None', choices = categories[1], selected = categories[1], options = list(`actions-box`=TRUE), multiple = TRUE),
+          pickerInput('apcc_cats', 'Category', choices = categories),
+          pickerInput('apcc_catopts', categories[1], choices = categories[1], selected = categories[1], options = list(`actions-box`=TRUE), multiple = TRUE),
           sliderInput('apcc_UAAarea', 'Percentage of Holding Entered', min = 0, max = 1, value = 0.6),
           materialSwitch('apcc_percentage', 'Show UAA as Percentage of Total', value = FALSE, status = 'primary', right = TRUE)
         ),
@@ -263,7 +263,7 @@ server <- function(input, output, session) {
 
   # apcc_ Tab
   observeEvent(input$apcc_cats, {
-    opts <- data %>% select(input$apcc_cats) %>% unique()
+    opts <- data %>% select(input$apcc_cats) %>% first() %>% unique()
     updatePickerInput(session, 'apcc_catopts', input$apcc_cats, choices = opts, selected = opts)
   })
   apcc_filteredData <- reactive({
