@@ -1,4 +1,4 @@
-# ----------------------------------------------------------------------------------------------
+## ----------------------------------------------------------------------------------------------
 # STEP 0: Preamble
 # ----------------------------------------------------------------------------------------------
 
@@ -128,18 +128,18 @@ fbsdata3 <- fbsdata2 %>%
                                           "BS_Livestock",
                                           "other")))
 
-fbsdata3 <- fbsdata3 %>% 
+fbsdata4 <- fbsdata2 %>% 
   mutate(base_system_type_2 = ifelse(type %in% c("Cereals", "General Cropping"),
                                      "BS_Arable",
                                      ifelse(type %in% c("LFA Grazing Livestock", "Lowland Grazing Livestock"),
                                             "BS_Livestock",
                                             "other")))
-fbsdata3 <- fbsdata3 %>% 
+fbsdata5 <- fbsdata2 %>% 
   mutate(base_system_type_3 = ifelse(type %in% c("Cereals", "General Cropping", "Horticulture"),
-                                   "BS_Arable",
-                                   ifelse(type %in% c("Dairy", "Lowland Grazing Livestock"),
-                                          "BS_Livestock",
-                                          "other")))
+                                     "BS_Arable",
+                                     ifelse(type %in% c("Dairy", "Lowland Grazing Livestock"),
+                                            "BS_Livestock",
+                                            "other")))
 # ----------------------------------------------------------------------------------------------
 # STEP 3: Weighted Percentiles (Christine's Code)
 # ----------------------------------------------------------------------------------------------
@@ -158,7 +158,7 @@ options(survey.lonely.psu="remove")
 # "base_system_type",
 # "base_system_type_2")
 
-design <- svydesign(id = ~ farms,
+design <- svydesign(id = ~ ï..farms,
                     strata = ~ stratum,
                     fpc =  ~ num.pop,
                     data = fbsdata3,
@@ -191,7 +191,7 @@ totals_bs_type2 <- total_byfac(vars = varlist1,
 # Getting Percentiles -----------------------------------------------------
 
 # get un-weighted percentiles
-unweight_quantile_incomeperha <- quantile(fbsdata2$agriculture.income.per.ha,c(.1,.2,.3,.4,.5,.6,.7,.8,.9))
+
 unweighted_qauntile_gmperha <- quantile(fbsdata2$agriculture.gross.margin.per.ha,c(.1,.2,.3,.4,.5,.6,.7,.8,.9))
 
 # get weighted percentiles 
@@ -244,7 +244,7 @@ quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha,
 
 
 #Base system types 3 
-quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha, 
+quantiles_bs_3_gm <- svyby(~agriculture.gross.margin.per.ha, 
                            ~base_system_type_3, 
                            design,
                            svyquantile, 
@@ -255,4 +255,4 @@ quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha,
 # write to csv files                             
 write.csv(quantiles_bs_gm , "gmperha_quantiles_bs.csv") 
 write.csv(quantiles_bs_2_gm , "gmperha_quantiles_bs_2.csv") 
-write.csv(quantiles_bs_2_gm , "gmperha_quantiles_bs_3.csv") 
+write.csv(quantiles_bs_3_gm , "gmperha_quantiles_bs_3.csv") 
