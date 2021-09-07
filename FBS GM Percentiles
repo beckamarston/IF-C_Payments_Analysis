@@ -7,7 +7,7 @@ tictoc::tic()
 rm(list=ls())
 
 # set working directory
-setwd(dir="//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston")
+setwd(dir="//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/Uplift Methodologies")
 
 # loading packages
 library(tidyverse)
@@ -87,7 +87,7 @@ for (i in years){
                        extract)
 }
 # write to exel
-write.xlsx(fbsdata, file = "_insertdate_fbsdata17/19.xlsx", sheetName = "sheet1", append = FALSE)
+write.xlsx(fbsdata, file = "_date_fbsdata1.xlsx", sheetName = "sheet1", append = FALSE)
 
 # Clean data --------------------------------------------------------------
 
@@ -114,7 +114,7 @@ fbsdata2 <- fbsdata1 %>%
          agriculture.gross.margin.per.ha = agriculture.gross.margin/UAA)
 
 # write to exel
-write.xlsx(fbsdata, file = "-insertdate_fbsdataset.xlsx", sheetName = "sheet1", append = FALSE)
+write.xlsx(fbsdata, file = "-date_fbsdata2.xlsx", sheetName = "sheet1", append = FALSE)
 
 # ----------------------------------------------------------------------------------------------
 # STEP 2: Create Groupings
@@ -134,7 +134,12 @@ fbsdata3 <- fbsdata3 %>%
                                      ifelse(type %in% c("LFA Grazing Livestock", "Lowland Grazing Livestock"),
                                             "BS_Livestock",
                                             "other")))
-
+fbsdata3 <- fbsdata3 %>% 
+  mutate(base_system_type_3 = ifelse(type %in% c("Cereals", "General Cropping", "Horticulture"),
+                                   "BS_Arable",
+                                   ifelse(type %in% c("Dairy", "Lowland Grazing Livestock"),
+                                          "BS_Livestock",
+                                          "other")))
 # ----------------------------------------------------------------------------------------------
 # STEP 3: Weighted Percentiles (Christine's Code)
 # ----------------------------------------------------------------------------------------------
@@ -203,20 +208,10 @@ gmperha_weighted_quantiles_ci <- svyquantile(x = ~agriculture.gross.margin.per.h
                                              ci=TRUE)
 
 #write an csv file--------------------------------------------------------------
-#write.csv(incomeperha_weighted_quantiles, "incomeperha_quantiles.csv")
-#write.csv(incomeperha_weighted_quantiles_ci[2], "incomeperha_quantiles_ci.csv")
 #write.csv(gmperha_weighted_quantiles, "gmperha_weighted_quantiles.csv")
 #write.csv(gmperha_weighted_quantiles_ci[2], "gmperha_weighted_quantiles_ci.csv")
 
 # Get weighted quantiles per farm type -------------------------------------------------
-quantiles_farm_type_income <- svyby(~agriculture.income.per.ha, 
-                                    ~type, 
-                                    design,
-                                    svyquantile, 
-                                    quantiles=c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
-                                    ci=TRUE,
-                                    vartype="ci")
-
 quantiles_farm_type_gm <- svyby(~agriculture.gross.margin.per.ha, 
                                 ~type, 
                                 design,
@@ -226,21 +221,10 @@ quantiles_farm_type_gm <- svyby(~agriculture.gross.margin.per.ha,
                                 vartype="ci")
 
 # write to csv file                             
-#write.csv(quantiles_farm_type_income, "incomeperha_quantiles_farmtype.csv")
 write.csv(quantiles_farm_type_gm, "gmperha_quantiles_farmtype.csv") 
 
-
 # Get weighted percentiles per base system type ---------------------------
-
 #Base system types 1
-quantiles_bs_income <- svyby(~agriculture.income.per.ha, 
-                             ~base_system_type, 
-                             design,
-                             svyquantile, 
-                             quantiles=c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
-                             ci=TRUE,
-                             vartype="ci")
-
 quantiles_bs_gm <- svyby(~agriculture.gross.margin.per.ha, 
                          ~base_system_type, 
                          design,
@@ -250,14 +234,6 @@ quantiles_bs_gm <- svyby(~agriculture.gross.margin.per.ha,
                          vartype="ci")
 
 #Base system types 2 
-quantiles_bs_2_income <- svyby(~agriculture.income.per.ha, 
-                               ~base_system_type_2, 
-                               design,
-                               svyquantile, 
-                               quantiles=c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
-                               ci=TRUE,
-                               vartype="ci")
-
 quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha, 
                            ~base_system_type_2, 
                            design,
@@ -266,8 +242,17 @@ quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha,
                            ci=TRUE,
                            vartype="ci")
 
-# write to csv file                             
-#write.csv(quantiles_bs_income, "incomeperha_quantiles_bs.csv")
+
+#Base system types 3 
+quantiles_bs_2_gm <- svyby(~agriculture.gross.margin.per.ha, 
+                           ~base_system_type_3, 
+                           design,
+                           svyquantile, 
+                           quantiles=c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+                           ci=TRUE,
+                           vartype="ci")
+
+# write to csv files                             
 write.csv(quantiles_bs_gm , "gmperha_quantiles_bs.csv") 
-#write.csv(quantiles_bs_2_income , "incomeperha_quantiles_bs_2.csv") 
 write.csv(quantiles_bs_2_gm , "gmperha_quantiles_bs_2.csv") 
+write.csv(quantiles_bs_2_gm , "gmperha_quantiles_bs_3.csv") 
