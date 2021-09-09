@@ -1,42 +1,19 @@
+library('magrittr')
+# library('dplyr')
+# library('tibble')
+# library('tidyr')
+# library('survey')
+# library('FBSCore')
+options(
+  survey.adjust.domain.lonely = TRUE,
+  survey.lonely.psu = 'remove'
+)
+setwd(dir='//ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/Uplift Methodologies')
 
-# o	the R code makes sense and works correctly
-# o	The groupings work and feed into the percentiles
-# o	The percentiles produce take account of the FBS weightings
 
 
-
-## ----------------------------------------------------------------------------------------------
-# STEP 0: Preamble
-# ----------------------------------------------------------------------------------------------
-
-tictoc::tic()
-# clear workspace
-rm(list=ls())
-
-# set working directory
-setwd(dir='//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/Uplift Methodologies')
-
-# loading packages
-library(tidyverse)
-library(ggplot2)
-library(readxl)
-library(dplyr)
-library(ggplot2)
-library(openxlsx)
-library(FBSCore)
-library(survey)
-library(openxlsx)
-
-# ----------------------------------------------------------------------------------------------
-# STEP 1: Construct 3 year matched dataset
-# ----------------------------------------------------------------------------------------------
-
-# bring in weights for 3 year matched
-fbsdata <- readRDS('//Ler365fs/fbs2/Users/TASPrototype/Non FBS Staff analysis/Rebecca Marston/fbs_england_17_18_to_19_20_matched_3yr_sample_reweighted.rds')
-
-# list of variables to extract and then 3 year average below (those whose names we have from the CalculatedVariablesDefinition spreadsheet)
-varlist1 <- c(
-  # general farm variables
+#### STEP 1:  Extract FBS Data! ####
+varlist1 <- {c(
   'UAA',
   'area.farmed',
   'labour.force',
@@ -71,255 +48,190 @@ varlist1 <- c(
   'diversified.output',
   'performance.ratio',
   'total.area'
-)
-
-# variables to extract (in addition to the standard ones)
-spec <- tibble(
-  variable = c(varlist1),
-  name = c(rep(NA, length(varlist1)))
-)
-
-
-# extract 3 years of data
-# MA: we really need to get the FBS into a proper database. This takes around 1.5 minutes to run.
-# MA: you might get more mileage with these data in long format.
-years <- seq(2017, 2019)
-for (i in years) {
-  extract <- extract_spec(
-    year = i,
-    spec = spec,
-    fbs_spreadsheet = TRUE,
-    country = 'england'
-  )
-  colnames(extract)[2:length(colnames(extract))] <- paste(
-    'X.',
-    substring(as.character(i), 3, 4),
-    sep = '',
-    colnames(extract)[2:length(colnames(extract))]
-  )
-  fbsdata <- left_join(
-    fbsdata,
-    extract
+)}
+if (FALSE) {  #very slow!
+  for (year in 2018:2019) {
+    extract <- FBSCore::extract_spec(
+      year = year,
+      spec = tibble::tibble(variable=varlist1, name=rep(NA,length(varlist1)))
+    ) %>%
+      dplyr::mutate(
+        year = year
+      )
+    saveRDS(extract, paste0('../FBS Data Extracts/Percentiles/', year, '.rds'))
+  }
+}
+extracts <- data.frame()
+for (year in 2017:2019) {
+  extracts <- dplyr::bind_rows(
+    extracts,
+    readRDS(paste0('../FBS Data Extracts/Percentiles/', year, '.rds'))
   )
 }
-# write to excel
-# write.xlsx(
-#   fbsdata,
-#   file = '_date_fbsdata1.xlsx',
-#   sheetName = 'sheet1',
-#   append = FALSE
-# )
+extracts <- extracts %>%
+  dplyr::select(append(c('farms', 'year'), varlist1)) %>%
+  dplyr::group_by(farms) %>%
+  dplyr::summarise_all(
+    function (...) {
+      if (is.numeric(...)) {
+        mean(...)
+      } else {
+        dplyr::first(...)
+      }
+    }
+  )
 
-# Clean data --------------------------------------------------------------
 
-# 3 year average function
-av_3year <- function(dat, item, years = 2017:2019) {
-  years %>%
-    substr(start = 3, stop = 4) %>%
-    paste0('X.', ., item) %>%
-    subset(dat, select = .) %>%
-    rowMeans()
-}
 
-# calculate averages
-for (v in c(varlist1)) {
-  fbsdata[paste0(v)] = av_3year(fbsdata, v)
-}
+#### STEP 2:  Clean Data ####
+arable <- c('Cereals', 'General cropping', 'Horticulture')
+livestock <- c('LFA Grazing Livestock', 'Dairy', 'Lowland Grazing Livestock')
 
-# remove annual data (keeping only the 3 year averages)
-fbsdata1 <- fbsdata %>% select(-starts_with('X.'))
 
-# remove farms with UAA< 5ha from the sample, and create new variables (£ per ha)
-fbsdata2 <- fbsdata1 %>%
-  filter(UAA >= 5) %>%
-  mutate(
+fbsdata <- readRDS('../fbs_england_17_18_to_19_20_matched_3yr_sample_reweighted.rds') %>%
+  dplyr::left_join(
+    extracts,
+    by = 'farms'
+  ) %>%
+  dplyr::filter(5 < UAA) %>%
+  dplyr::mutate(
     agriculture.income.per.ha = agriculture.income / UAA,
-    agriculture.gross.margin.per.ha = agriculture.gross.margin / UAA
-  )
-
-# write to exel
-# write.xlsx(
-#   fbsdata,
-#   file = '-date_fbsdata2.xlsx',
-#   sheetName = 'sheet1',
-#   append = FALSE
-# )
-
-# ----------------------------------------------------------------------------------------------
-# STEP 2: Create Groupings
-# ----------------------------------------------------------------------------------------------
-
-# create new farm type grouping variables
-fbsdata3 <- fbsdata2 %>%
-  mutate(
-    base_system_type = ifelse(
-      type %in% c('Cereals', 'General Cropping', 'Horticulture'),
-      'BS_Arable',
-      ifelse(
-        type %in% c('LFA Grazing Livestock', 'Dairy', 'Lowland Grazing Livestock'),
-        'BS_Livestock',
-        'other'
-      )
+    agriculture.gross.margin.per.ha = agriculture.gross.margin / UAA,
+    base_system_type = dplyr::case_when(
+      type %in% arable ~ 'BS_Arable',
+      type %in% livestock ~ 'BS_Livestock',
+      TRUE ~ 'other'
+    ),
+    base_system_type_2 = dplyr::case_when(
+      type %in% arable ~ 'BS_Arable',
+      type %in% livestock[c(1,3)] ~ 'BS_Livestock',
+      TRUE ~ 'other'
+    ),
+    base_system_type_3 = dplyr::case_when(
+      type %in% arable ~ 'BS_Arable',
+      type %in% livestock[c(2,3)] ~ 'BS_Livestock',
+      TRUE ~ 'other'
     )
   )
-fbsdata4 <- fbsdata2 %>%
-  mutate(
-    base_system_type_2 = ifelse(
-      type %in% c('Cereals', 'General Cropping'),
-      'BS_Arable',
-      ifelse(
-        type %in% c('LFA Grazing Livestock', 'Lowland Grazing Livestock'),
-        'BS_Livestock',
-        'other'
-      )
-    )
-  )
-fbsdata5 <- fbsdata2 %>%
-  mutate(
-    base_system_type_3 = ifelse(
-      type %in% c('Cereals', 'General Cropping', 'Horticulture'),
-      'BS_Arable',
-      ifelse(
-        type %in% c('Dairy', 'Lowland Grazing Livestock'),
-        'BS_Livestock',
-        'other'
-      )
-    )
-  )
-# ----------------------------------------------------------------------------------------------
-# STEP 3: Weighted Percentiles (Christine's Code)
-# ----------------------------------------------------------------------------------------------
-### Ensure the correct weight is being supplied to the survey design, in this case 'newwt3yr'
-# as it is the three year matched dataset and using the newly calculated columns as your input
-# rather than the single year values with the prefixes.
 
-# Getting error when using survey package - workaround
-options(survey.adjust.domain.lonely = TRUE)
-options(survey.lonely.psu = 'remove')
 
-# Add new variables to the var list
-#varlist1 <- c('agriculture.income.per.ha',
-# 'agriculture.gross.margin.per.ha',
-# 'newwt3yr',
-# 'base_system_type',
-# 'base_system_type_2')
 
-design <- svydesign(
-  id = ~ï..farms,
+### STEP 3:  Weighted Percentiles ####
+# Ensure the correct weight is being supplied to the survey design, in this case 'newwt3yr' as it is the three year matched dataset and using the newly calculated columns as your input rather than the single year values with the prefixes.
+# varlist1 <- append(varlist1, c(
+#   'agriculture.income.per.ha',
+#   'agriculture.gross.margin.per.ha',
+#   'newwt3yr',
+#   'base_system_type',
+#   'base_system_type_2',
+#   # 'base_system_type_3'
+# ))
+# or
+# varlist1 <- names(fbsdata)
+quantiles <- c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1)
+design <- survey::svydesign(
+  ids = ~farms,
   strata = ~stratum,
   fpc =  ~num.pop,
-  data = fbsdata3,
+  data = fbsdata,
   weight = ~newwt3yr,
   nest = TRUE
 )
 
-
-# calculating some values
-means <- mean_byfac(
+# calculating some values ---------------------------------------------- UNUSED!
+means <- FBSCore::mean_byfac(
   vars = varlist1,
   factor = 'type',
   design = design
 )
-totals <- total_byfac(
+totals <- FBSCore::total_byfac(
   vars = varlist1,
   factor = 'type',
   design = design
 )
-totals_bs_type1 <- total_byfac(
+# total value by type 1
+totals_bs_type1 <- FBSCore::total_byfac(
   vars = varlist1,
   factor = 'base_system_type',
   design = design
 )
-totals_bs_type2 <- total_byfac(
+# total value by type 2
+totals_bs_type2 <- FBSCore::total_byfac(
   vars = varlist1,
   factor = 'base_system_type_2',
   design = design
 )
-
-# write to csv
-#write.csv(totals_bs_type1, 'weighted_totals_bs1.csv')
-#write.csv(totals_bs_type2, 'weighted_totals_bs2.csv')
-
-
-# Getting Percentiles -----------------------------------------------------
-
-# get un-weighted percentiles
+# un-weighted percentiles
 unweighted_qauntile_gmperha <- quantile(
-  fbsdata2$agriculture.gross.margin.per.ha,
-  c(.1,.2,.3,.4,.5,.6,.7,.8,.9)
+  fbsdata$agriculture.gross.margin.per.ha,
+  seq(0,1,.1)
 )
-
-# get weighted percentiles
-gmperha_weighted_quantiles <- svyquantile(
+# weighted percentiles
+gmperha_weighted_quantiles <- survey::svyquantile(
   x = ~agriculture.gross.margin.per.ha,
   design = design,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  quantiles = quantiles,
   alpha = 0.05,
   ci = FALSE
 )
-
-gmperha_weighted_quantiles_ci <- svyquantile(
+# weighted percentiles with 95% confidence interval ------------------------ [2]
+gmperha_weighted_quantiles_ci <- survey::svyquantile(
   x = ~agriculture.gross.margin.per.ha,
   design = design,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  quantiles = quantiles,
   alpha = 0.05,
   ci = TRUE
-)
-
-#write an csv file--------------------------------------------------------------
-# write.csv(gmperha_weighted_quantiles, 'gmperha_weighted_quantiles.csv')
-# write.csv(gmperha_weighted_quantiles_ci[2], 'gmperha_weighted_quantiles_ci.csv')
-
-# Get weighted quantiles per farm type -------------------------------------------------
-quantiles_farm_type_gm <- svyby(
+)[[2]]
+# weighted quantiles per farm type
+quantiles_farm_type_gm <- survey::svyby(
   ~agriculture.gross.margin.per.ha,
   ~type,
   design,
-  svyquantile,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  survey::svyquantile,
+  quantiles = quantiles,
   ci = TRUE,
   vartype = 'ci'
 )
-
-# write to csv file
-write.csv(
-  quantiles_farm_type_gm,
-  'gmperha_quantiles_farmtype.csv'
-)
-
-# Get weighted percentiles per base system type ---------------------------
-#Base system types 1
-quantiles_bs_gm <- svyby(
+# weighted percentiles per base system type 1
+quantiles_bs_gm <- survey::svyby(
   ~agriculture.gross.margin.per.ha,
   ~base_system_type,
   design,
-  svyquantile,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  survey::svyquantile,
+  quantiles = quantiles,
   ci = TRUE,
   vartype = 'ci'
 )
-#Base system types 2
-quantiles_bs_2_gm <- svyby(
+# weighted percentiles per base system type 2
+quantiles_bs_2_gm <- survey::svyby(
   ~agriculture.gross.margin.per.ha,
   ~base_system_type_2,
   design,
-  svyquantile,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  survey::svyquantile,
+  quantiles = quantiles,
   ci = TRUE,
   vartype = 'ci'
 )
-#Base system types 3
-quantiles_bs_3_gm <- svyby(
+# weighted percentiles per base system type 3
+quantiles_bs_3_gm <- survey::svyby(
   ~agriculture.gross.margin.per.ha,
   ~base_system_type_3,
   design,
-  svyquantile,
-  quantiles = c(0,.1,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.9,1),
+  survey::svyquantile,
+  quantiles = quantiles,
   ci = TRUE,
   vartype = 'ci'
 )
 
-# write to csv files
-# write.csv(quantiles_bs_gm , 'gmperha_quantiles_bs.csv')
-# write.csv(quantiles_bs_2_gm , 'gmperha_quantiles_bs_2.csv')
-# write.csv(quantiles_bs_3_gm , 'gmperha_quantiles_bs_3.csv')
+
+
+#### STEP 4:  Export ####
+dir.create('./aw/')
+write.csv(totals_bs_type1, './aw/weighted_totals_bs1.csv')
+write.csv(totals_bs_type2, './aw/weighted_totals_bs2.csv')
+write.csv(gmperha_weighted_quantiles, './aw/gmperha_weighted_quantiles.csv')
+write.csv(gmperha_weighted_quantiles_ci, './aw/gmperha_weighted_quantiles_ci.csv')
+write.csv(quantiles_farm_type_gm, './aw/gmperha_quantiles_farmtype.csv')
+write.csv(quantiles_bs_gm , './aw/gmperha_quantiles_bs.csv')
+write.csv(quantiles_bs_2_gm , './aw/gmperha_quantiles_bs_2.csv')
+write.csv(quantiles_bs_3_gm , './aw/gmperha_quantiles_bs_3.csv')
