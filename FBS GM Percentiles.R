@@ -51,23 +51,31 @@ varlist1 <- {c(
 )}
 if (FALSE) {  #very slow!
   for (year in 2018:2019) {
-    extract <- FBSCore::extract_spec(
+    FBSCore::extract_spec(
       year = year,
       spec = tibble::tibble(variable=varlist1, name=rep(NA,length(varlist1)))
     ) %>%
-      dplyr::mutate(
-        year = year
-      )
-    saveRDS(extract, paste0('../FBS Data Extracts/Percentiles/', year, '.rds'))
+      saveRDS(paste0('../FBS Data Extracts/Percentiles/', year, '.rds'))
   }
 }
 extracts <- data.frame()
 for (year in 2017:2019) {
   extracts <- dplyr::bind_rows(
     extracts,
-    readRDS(paste0('../FBS Data Extracts/Percentiles/', year, '.rds'))
+    paste0('../FBS Data Extracts/Percentiles/', year, '.rds') %>%
+      readRDS() %>%
+      dplyr::mutate(
+        year = year
+      )
   )
 }
+
+
+
+#### STEP 2:  Clean Data ####
+arable <- c('Cereals', 'General cropping', 'Horticulture')
+livestock <- c('LFA Grazing Livestock', 'Dairy', 'Lowland Grazing Livestock')
+
 extracts <- extracts %>%
   dplyr::select(append(c('farms', 'year'), varlist1)) %>%
   dplyr::group_by(farms) %>%
@@ -80,13 +88,6 @@ extracts <- extracts %>%
       }
     }
   )
-
-
-
-#### STEP 2:  Clean Data ####
-arable <- c('Cereals', 'General cropping', 'Horticulture')
-livestock <- c('LFA Grazing Livestock', 'Dairy', 'Lowland Grazing Livestock')
-
 
 fbsdata <- readRDS('../fbs_england_17_18_to_19_20_matched_3yr_sample_reweighted.rds') %>%
   dplyr::left_join(
@@ -117,7 +118,7 @@ fbsdata <- readRDS('../fbs_england_17_18_to_19_20_matched_3yr_sample_reweighted.
 
 
 ### STEP 3:  Weighted Percentiles ####
-# Ensure the correct weight is being supplied to the survey design, in this case 'newwt3yr' as it is the three year matched dataset and using the newly calculated columns as your input rather than the single year values with the prefixes.
+## Should varlist1 be extended?
 # varlist1 <- append(varlist1, c(
 #   'agriculture.income.per.ha',
 #   'agriculture.gross.margin.per.ha',
@@ -174,7 +175,7 @@ gmperha_weighted_quantiles <- survey::svyquantile(
   alpha = 0.05,
   ci = FALSE
 )
-# weighted percentiles with 95% confidence interval ------------------------ [2]
+# weighted percentiles with 95% confidence interval
 gmperha_weighted_quantiles_ci <- survey::svyquantile(
   x = ~agriculture.gross.margin.per.ha,
   design = design,
